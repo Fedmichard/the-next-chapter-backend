@@ -110,6 +110,39 @@ const deletePlayer = async (request, response) => {
     }
 }
 
+const listAllPlayers = async (request, response) => {
+    try {
+        const page = parseInt(request.query.page) || 1;
+        const limit = parseInt(request.query.limit) || 25; // Default to 25 players per page
+        const skip = (page - 1) * limit;
+
+        // 2. Create the query
+        const playersQuery = Player.find() // Find all, but apply pagination
+            .sort({ name: 1 }) // Sort alphabetically by name
+            .skip(skip)
+            .limit(limit)
+            .select('_id name instagram_handle profile_image_url position');
+
+        const totalPlayers = await Player.countDocuments();
+
+        const players = await playersQuery;
+
+        response.status(200).json({
+            message: 'Players retrieved successfully',
+            data: players,
+            pagination: {
+                currentPage: page,
+                totalPages: Math.ceil(totalPlayers / limit),
+                totalPlayers: totalPlayers
+            }
+        });
+
+    } catch (error) {
+        console.error("List All Players Error:", error);
+        response.status(500).json({ message: 'Server error while retrieving players' });
+    }
+}
+
 const searchPlayers = async (request, response) => {
     const searchTerm = request.query.search;
 
@@ -185,6 +218,7 @@ module.exports = {
     updatePlayer,
     deletePlayer,
     searchPlayers,
+    listAllPlayers,
     getPlayerById,
     getPlayerRecentGames
 };

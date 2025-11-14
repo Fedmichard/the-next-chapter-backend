@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 
-const plainPassword = 'fedou1999'; // The password the user will type
+const plainPassword = 'admin123'; // The password the user will type
 
 // --- Generate the hash ---
 bcrypt.hash(plainPassword, 10, (err, hash) => {
