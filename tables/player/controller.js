@@ -121,7 +121,7 @@ const listAllPlayers = async (request, response) => {
             .sort({ name: 1 }) // Sort alphabetically by name
             .skip(skip)
             .limit(limit)
-            .select('_id name instagram_handle profile_image_url position');
+            .select('_id name instagram_handle profile_image_url position overall_stats');
 
         const totalPlayers = await Player.countDocuments();
 
