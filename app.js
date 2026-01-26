@@ -1,5 +1,6 @@
 // Dependencies
 require('dotenv').config();
+console.log("DEBUG: URI is", process.env.MONGODB_URI ? "LOADED" : "MISSING/EMPTY");
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');

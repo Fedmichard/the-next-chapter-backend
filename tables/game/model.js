@@ -81,6 +81,17 @@ const gameSchema = new Schema({
         team_a: { type: Number, default: 0 },
         team_b: { type: Number, default: 0 }
     },
+    scheduled_date: {
+        type: Date
+    },
+    scheduled_time: {
+        type: String
+    },
+    court_type: {
+        type: String,
+        enum: ['full_court', 'half_court'],
+        default: 'half_court'
+    },
     winner: {
         type: String,
         enum: ['team_a', 'team_b', null], // Use null if game isn't finished or tied (if ties are possible)
