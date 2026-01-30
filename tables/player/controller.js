@@ -214,12 +214,112 @@ const getPlayerRecentGames = async (request, response) => {
     }
 };
 
+const getPlayerShotChart = async (request, response) => {
+    const { id } = request.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return response.status(400).json({ message: 'Invalid player ID format' });
+    }
+
+    try {
+        // Select ONLY the shot data to make the payload small
+        const player = await Player.findById(id).select('all_time_shot_data');
+
+        if (!player) {
+            return response.status(404).json({ message: 'Player not found' });
+        }
+
+        // Return just the array of shots
+        response.status(200).json({ shots: player.all_time_shot_data || [] });
+
+    } catch (error) {
+        console.error("Shot Chart Retrieval Error:", error);
+        response.status(500).json({ message: 'Server error during shot chart retrieval' });
+    }
+};
+
+const getPlayerShotChartsss = async (request, response) => {
+    const { id } = request.params;
+    const { gameId } = request.query;
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) return response.status(400).json({ message: 'Invalid player ID format' });
+
+    try {
+        // If gameId is provided, get shots from that specific game only
+        if (gameId && mongoose.Types.ObjectId.isValid(gameId)) {
+            const game = await Game.findById(gameId).lean();
+            
+            if (!game) {
+                return response.status(404).json({ message: 'Game not found' });
+            }
+
+            // Extract shots for this player from this specific game (regardless of status)
+            const shots = [];
+            if (game.events) {
+                game.events.forEach(event => {
+                    if (event.type === 'shot' && event.player_id.toString() === id) {
+                        shots.push({
+                            gameId: game._id,
+                            location: event.location,
+                            made: event.made,
+                            points: event.points,
+                            timestamp: event.timestamp
+                        });
+                    }
+                });
+            }
+
+            return response.status(200).json({
+                playerId: id,
+                gameId: gameId,
+                status: game.status,
+                totalShots: shots.length,
+                shots: shots
+            });
+        }
+
+        // If no gameId, get all finished games for this player (career stats)
+        const games = await Game.find({ 
+            all_player_ids: id,
+            status: 'finished'
+        }).lean();
+
+        // Extract shot events for this player from all games
+        const shots = [];
+        games.forEach(game => {
+            if (game.events) {
+                game.events.forEach(event => {
+                    if (event.type === 'shot' && event.player_id.toString() === id) {
+                        shots.push({
+                            gameId: game._id,
+                            location: event.location,
+                            made: event.made,
+                            points: event.points,
+                            timestamp: event.timestamp
+                        });
+                    }
+                });
+            }
+        });
+
+        return response.status(200).json({
+            playerId: id,
+            totalShots: shots.length,
+            shots: shots
+        });
+    } catch (error) {
+        console.error('Shot Chart Retrieval Error:', error);
+        return response.status(500).json({ message: 'Server error during shot chart retrieval' });
+    }
+}
+
 module.exports = {
     createPlayer,
     updatePlayer,
     deletePlayer,
     searchPlayers,
     listAllPlayers,
+    getPlayerShotChart,
     getPlayerById,
     getPlayerRecentGames
 };
