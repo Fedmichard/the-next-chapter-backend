@@ -71,8 +71,14 @@ const gameSchema = new Schema({
         required: true
     }],
     teams: {
-        team_a: [{ type: Schema.Types.ObjectId, ref: 'Player', required: true }],
-        team_b: [{ type: Schema.Types.ObjectId, ref: 'Player', required: true }]
+        team_a: {
+            name: { type: String, default: 'Team A' },
+            players: [{ type: Schema.Types.ObjectId, ref: 'Player', required: true }]
+        },
+        team_b: {
+            name: { type: String, default: 'Team B' },
+            players: [{ type: Schema.Types.ObjectId, ref: 'Player', required: true }]
+        }
     },
     score_to_win: {
         type: Number

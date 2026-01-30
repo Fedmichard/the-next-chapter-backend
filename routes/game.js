@@ -13,5 +13,6 @@ router.patch('/:id/cancel', protect, restrictTo('admin'), controller.cancelGame)
 
 // --- Public Data Retrieval ---
 router.get('/:id', controller.getGameById);
+router.get('/', controller.listAllGames);
 
 module.exports = router;

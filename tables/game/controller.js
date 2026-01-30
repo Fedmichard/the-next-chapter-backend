@@ -218,6 +218,21 @@ const _internalFinalizeGame = async (gameId) => {
 };
 
 // --- APIs ---
+const listAllGames = async (request, response) => {
+    try {
+        const games = await Game.find()
+            .sort({ createdAt: -1 }) 
+            // Update: populate inside the 'players' array
+            .populate('teams.team_a.players', 'name') 
+            .populate('teams.team_b.players', 'name'); 
+
+        response.status(200).json(games);
+    } catch (error) {
+        console.error("List All Games Error:", error);
+        response.status(500).json({ message: 'Server error during games retrieval' });
+    }
+};
+
 const createGame = async (request, response) => {
     const created_by = request.user._id;
     const { game_type, team_a, team_b, score_to_win } = request.body;
@@ -251,9 +266,18 @@ const createGame = async (request, response) => {
         const newGame = new Game({
             created_by,
             game_type,
-            all_player_ids: uniqueIds, // Use the validated unique IDs
-            teams: { team_a, team_b },
-            score_to_win, // Optional score_to_win
+            all_player_ids: uniqueIds,
+            teams: { 
+                team_a: {
+                    name: request.body.teams?.team_a?.name || 'Team A', // Capture name from frontend
+                    players: team_a // The array of IDs
+                },
+                team_b: {
+                    name: request.body.teams?.team_b?.name || 'Team B', // Capture name from frontend
+                    players: team_b // The array of IDs
+                }
+            },
+            score_to_win, 
             status: 'in_progress',
         });
 
@@ -460,6 +484,7 @@ module.exports = {
     createGame,
     updateGame,
     addGameEvent,
+    listAllGames,
     getGameById,
     finalizeGame,
     cancelGame
