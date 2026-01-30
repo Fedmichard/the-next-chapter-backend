@@ -113,15 +113,15 @@ const deletePlayer = async (request, response) => {
 const listAllPlayers = async (request, response) => {
     try {
         const page = parseInt(request.query.page) || 1;
-        const limit = parseInt(request.query.limit) || 25; // Default to 25 players per page
+        const limit = parseInt(request.query.limit) || 25; 
         const skip = (page - 1) * limit;
 
-        // 2. Create the query
-        const playersQuery = Player.find() // Find all, but apply pagination
-            .sort({ name: 1 }) // Sort alphabetically by name
+        const playersQuery = Player.find() 
+            .sort({ name: 1 }) 
             .skip(skip)
             .limit(limit)
-            .select('_id name instagram_handle profile_image_url position overall_stats');
+            // FIX: Added 'height_inches' and 'weight_lbs' to this list
+            .select('_id name instagram_handle profile_image_url position overall_stats height_inches weight_lbs');
 
         const totalPlayers = await Player.countDocuments();
 
@@ -159,8 +159,9 @@ const searchPlayers = async (request, response) => {
                 { instagram_handle: regex }
             ]
         })
-        .select('_id name instagram_handle profile_image_url position height_inches weight_lbs')
-        .limit(20); // Limit results to prevent overwhelming response
+        // FIX: Added 'overall_stats' to this list
+        .select('_id name instagram_handle profile_image_url position height_inches weight_lbs overall_stats')
+        .limit(20); 
 
         response.status(200).json(players);
 
