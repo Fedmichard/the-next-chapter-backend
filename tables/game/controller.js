@@ -87,10 +87,12 @@ const _internalCalculateStats = (game) => {
 };
 
 // --- Update Player Overall Stats ---
+// --- Update Player Overall Stats ---
 const _internalUpdatePlayerStats = async (game) => {
     let playerUpdatePromises = [];
     const shotsByPlayer = {};
 
+    // 1. Organize shots by player (this part was already correct)
     game.events.forEach(event => {
         if (event.type === 'shot') {
             const playerIdStr = event.player_id.toString();
@@ -98,27 +100,30 @@ const _internalUpdatePlayerStats = async (game) => {
                 shotsByPlayer[playerIdStr] = [];
             }
             shotsByPlayer[playerIdStr].push({
-                x: event.location?.x, // Optional just in case
+                x: event.location?.x,
                 y: event.location?.y,
                 made: event.made,
                 points: event.points,
-                game_id: game._id, // Add the game ID reference
-                timestamp: event.timestamp // Use the event's timestamp
+                game_id: game._id,
+                timestamp: event.timestamp
             });
         }
     });
 
+    // 2. Iterate through stats summary
     game.game_stats_summary.forEach((stats, playerIdStr) => {
-        // --- Determine Win/Loss/Neither based on game status ---
         let winIncrement = 0;
         let lossIncrement = 0;
-        
-        if (game.status === 'finished') {
-            // Is player on TeamA or TeamB
-            const isTeamA = game.teams.team_a.map(id => id.toString()).includes(playerIdStr);
-            const isTeamB = game.teams.team_b.map(id => id.toString()).includes(playerIdStr);
 
-            console.log(`Player ${playerIdStr}: isTeamA=${isTeamA}, isTeamB=${isTeamB}, gameWinner=${game.winner}`);
+        if (game.status === 'finished') {
+            // FIX: Handle the new Schema structure (Object with .players array)
+            // We use optional chaining and checks to support both old and new data if necessary
+            const teamAPlayers = Array.isArray(game.teams.team_a) ? game.teams.team_a : (game.teams.team_a?.players || []);
+            const teamBPlayers = Array.isArray(game.teams.team_b) ? game.teams.team_b : (game.teams.team_b?.players || []);
+
+            // Convert ObjectIds to strings for comparison
+            const isTeamA = teamAPlayers.map(id => id.toString()).includes(playerIdStr);
+            const isTeamB = teamBPlayers.map(id => id.toString()).includes(playerIdStr);
 
             if (game.winner === 'team_a' && isTeamA) {
                 winIncrement = 1;
@@ -129,8 +134,6 @@ const _internalUpdatePlayerStats = async (game) => {
             } else if (game.winner === 'team_b' && isTeamA) {
                 lossIncrement = 1;
             }
-
-            console.log(`Player ${playerIdStr}: winInc=${winIncrement}, lossInc=${lossIncrement}`);
         }
 
         const updateData = {
@@ -172,8 +175,8 @@ const _internalUpdatePlayerStats = async (game) => {
     });
 
     try {
-        await Promise.all(playerUpdatePromises); // Execute all updates concurrently
-        console.log(`Successfully updated overall stats for players in game ${game._id} (Status: ${game.status})`);
+        await Promise.all(playerUpdatePromises);
+        console.log(`Successfully updated overall stats for players in game ${game._id}`);
     } catch (error) {
         console.error(`Error updating player stats for game ${game._id}:`, error);
     }
