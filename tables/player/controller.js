@@ -113,29 +113,18 @@ const deletePlayer = async (request, response) => {
 const listAllPlayers = async (request, response) => {
     try {
         const page = parseInt(request.query.page) || 1;
-        const limit = parseInt(request.query.limit) || 25; 
+        // INCREASED LIMIT: Default to 100 to ensure all players show
+        const limit = parseInt(request.query.limit) || 100; 
         const skip = (page - 1) * limit;
 
-        const playersQuery = Player.find() 
-            .sort({ name: 1 }) 
+        const players = await Player.find() 
+            .sort({ name: 1 }) // Alphabetical order
             .skip(skip)
             .limit(limit)
-            // FIX: Added 'height_inches' and 'weight_lbs' to this list
             .select('_id name instagram_handle profile_image_url position overall_stats height_inches weight_lbs');
 
-        const totalPlayers = await Player.countDocuments();
-
-        const players = await playersQuery;
-
-        response.status(200).json({
-            message: 'Players retrieved successfully',
-            data: players,
-            pagination: {
-                currentPage: page,
-                totalPages: Math.ceil(totalPlayers / limit),
-                totalPlayers: totalPlayers
-            }
-        });
+        // FIX: Return just the array, matching searchPlayers format
+        response.status(200).json(players); 
 
     } catch (error) {
         console.error("List All Players Error:", error);
@@ -146,22 +135,23 @@ const listAllPlayers = async (request, response) => {
 const searchPlayers = async (request, response) => {
     const searchTerm = request.query.search;
 
-    if (!searchTerm) {
-        return response.status(400).json({ message: 'Search term is required' });
-    }
-
     try {
-        const regex = new RegExp(searchTerm, 'i');
+        let query = {};
+        
+        // If search term exists, filter by it. If not, return ALL players.
+        if (searchTerm) {
+            const regex = new RegExp(searchTerm, 'i');
+            query = {
+                $or: [
+                    { name: regex },
+                    { instagram_handle: regex }
+                ]
+            };
+        }
 
-        const players = await Player.find({
-            $or: [
-                { name: regex },
-                { instagram_handle: regex }
-            ]
-        })
-        // FIX: Added 'overall_stats' to this list
-        .select('_id name instagram_handle profile_image_url position height_inches weight_lbs overall_stats')
-        .limit(20); 
+        const players = await Player.find(query)
+            .select('_id name instagram_handle profile_image_url position height_inches weight_lbs overall_stats')
+            .limit(100); // INCREASED LIMIT: Up from 20 to 100
 
         response.status(200).json(players);
 
