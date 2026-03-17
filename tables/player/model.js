@@ -6,7 +6,7 @@ const shotSchema = new Schema({
     x: { type: Number, required: true },
     y: { type: Number, required: true },
     made: { type: Boolean, required: true },
-    points: { type: Number, required: true, enum: [1, 2, 3] }, // Assuming 1=FT, 2=FG, 3=3PT
+    points: { type: Number, required: true, enum: [1, 2, 3, 4] }, // Assuming 1=FT, 2=FG, 3=3PT, 4=4PT
     game_id: { type: Schema.Types.ObjectId, ref: 'Game', required: true },
     timestamp: { type: Date, required: true }
 }, { _id: false }); // Don't create separate _id for each shot object
@@ -66,18 +66,21 @@ const playerSchema = new Schema({
         // win_percentage calculated on frontend
         total_minutes: { type: Number, default: 0 },
         total_points: { type: Number, default: 0 },
+        // fg_percentage calculated on frontend
         total_fga: { type: Number, default: 0 },
         total_fgm: { type: Number, default: 0 },
-        // fg_percentage calculated on frontend
+        // 4p_percentage calculated on frontend
+        total_4pa: { type: Number, default: 0 },
+        total_4pm: { type: Number, default: 0 },
+        // 3p_percentage calculated on frontend
         total_3pa: { type: Number, default: 0 },
         total_3pm: { type: Number, default: 0 },
-        // 3p_percentage calculated on frontend
+        // 2p_percentage calculated on frontend
         total_2pa: { type: Number, default: 0 },
         total_2pm: { type: Number, default: 0 },
-        // 2p_percentage calculated on frontend
         total_fta: { type: Number, default: 0 },
-        total_ftm: { type: Number, default: 0 },
         // ft_percentage calculated on frontend
+        total_ftm: { type: Number, default: 0 },
         total_rebounds: { type: Number, default: 0 },
         total_oreb: { type: Number, default: 0 },
         total_dreb: { type: Number, default: 0 },

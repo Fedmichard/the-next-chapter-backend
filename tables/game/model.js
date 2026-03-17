@@ -17,7 +17,7 @@ const eventSchema = new Schema({
         y: { type: Number }
     },
     made: { type: Boolean }, // For shots and free throws
-    points: { type: Number, enum: [1, 2, 3] }, // For shots and free throws
+    points: { type: Number, enum: [1, 2, 3, 4] }, // For shots and free throws
     rebound_type: { type: String, enum: ['offensive', 'defensive'] }, // For rebounds
     turnover_type: { type: String } // Could add specific turnover types later
 }, { _id: false, strict: false }); // Allow extra fields if needed later
@@ -25,15 +25,18 @@ const eventSchema = new Schema({
 // Sub-schema for the per-player summary within a game
 const playerGameStatsSchema = new Schema({
     pts: { type: Number, default: 0 },
+    // fg_percentage calculated on frontend or when generating summary
     fga: { type: Number, default: 0 },
     fgm: { type: Number, default: 0 },
-    // fg_percentage calculated on frontend or when generating summary
+    // 4p_percentage calculated
+    '4pa': { type: Number, default: 0 },
+    '4pm': { type: Number, default: 0},
+    // 3p_percentage calculated
     '3pa': { type: Number, default: 0 }, // Use quotes for keys starting with numbers
     '3pm': { type: Number, default: 0 },
-    // 3p_percentage calculated
+    // ft_percentage calculated
     fta: { type: Number, default: 0 },
     ftm: { type: Number, default: 0 },
-    // ft_percentage calculated
     reb: { type: Number, default: 0 },
     oreb: { type: Number, default: 0 },
     dreb: { type: Number, default: 0 },
