@@ -10,7 +10,7 @@ const _internalCalculateStats = (game) => {
     // Initialize stats for all players in the game
     game.all_player_ids.forEach(playerId => {
         statsSummary.set(playerId.toString(), {
-            pts: 0, fga: 0, fgm: 0, '3pa': 0, '3pm': 0, fta: 0, ftm: 0,
+            pts: 0, fga: 0, fgm: 0, '3pa': 0, '3pm': 0, '4pa': 0, '4pm': 0, fta: 0, ftm: 0,
             reb: 0, oreb: 0, dreb: 0, ast: 0, tov: 0, stl: 0, blk: 0, pf: 0,
             // We'll calculate plus_minus, dd2, td3 later if needed, more complex
         });
@@ -27,10 +27,12 @@ const _internalCalculateStats = (game) => {
             case 'shot':
                 playerStats.fga += 1;
                 if (event.points === 3) playerStats['3pa'] += 1;
+                if (event.points === 4) playerStats['4pa'] += 1;
                 if (event.made) {
                     playerStats.fgm += 1;
                     playerStats.pts += event.points;
                     if (event.points === 3) playerStats['3pm'] += 1;
+                    if (event.points === 4) playerStats['4pm'] += 1;
                 }
                 break;
             case 'free_throw':
@@ -146,8 +148,10 @@ const _internalUpdatePlayerStats = async (game) => {
                 'overall_stats.total_fgm': stats.fgm || 0,
                 'overall_stats.total_3pa': stats['3pa'] || 0,
                 'overall_stats.total_3pm': stats['3pm'] || 0,
-                'overall_stats.total_2pa': (stats.fga || 0) - (stats['3pa'] || 0),
-                'overall_stats.total_2pm': (stats.fgm || 0) - (stats['3pm'] || 0),
+                'overall_stats.total_4pa': stats['4pa'] || 0,
+                'overall_stats.total_4pm': stats['4pm'] || 0,
+                'overall_stats.total_2pa': (stats.fga || 0) - (stats['3pa'] || 0) - (stats['4pa'] || 0),
+                'overall_stats.total_2pm': (stats.fgm || 0) - (stats['3pm'] || 0) - (stats['4pm'] || 0),
                 'overall_stats.total_fta': stats.fta || 0,
                 'overall_stats.total_ftm': stats.ftm || 0,
                 'overall_stats.total_rebounds': stats.reb || 0,
@@ -217,6 +221,81 @@ const _internalFinalizeGame = async (gameId) => {
      } catch (error) {
         console.error(`Error during internal finalization for game ${gameId}:`, error);
         throw error;
+    }
+};
+
+// --- Internally Deleting Game ---
+const _internalRevertPlayerStats = async (game) => {
+    let playerUpdatePromises = [];
+
+    // Iterate through the stats summary that was previously saved to the game
+    game.game_stats_summary.forEach((stats, playerIdStr) => {
+        let winDecrement = 0;
+        let lossDecrement = 0;
+
+        // Only calculate win/loss changes if the game was actually finished
+        if (game.status === 'finished') {
+            const teamAPlayers = Array.isArray(game.teams.team_a) ? game.teams.team_a : (game.teams.team_a?.players || []);
+            const teamBPlayers = Array.isArray(game.teams.team_b) ? game.teams.team_b : (game.teams.team_b?.players || []);
+
+            const isTeamA = teamAPlayers.map(id => id.toString()).includes(playerIdStr);
+            const isTeamB = teamBPlayers.map(id => id.toString()).includes(playerIdStr);
+
+            if (game.winner === 'team_a' && isTeamA) {
+                winDecrement = -1;
+            } else if (game.winner === 'team_b' && isTeamB) {
+                winDecrement = -1;
+            } else if (game.winner === 'team_a' && isTeamB) {
+                lossDecrement = -1;
+            } else if (game.winner === 'team_b' && isTeamA) {
+                lossDecrement = -1;
+            }
+        }
+
+        // Multiply all stats by -1 to subtract them
+        const updateData = {
+            $inc: {
+                'overall_stats.games_played': -1,
+                'overall_stats.wins': winDecrement,
+                'overall_stats.losses': lossDecrement,
+                'overall_stats.total_points': -(stats.pts || 0),
+                'overall_stats.total_fga': -(stats.fga || 0),
+                'overall_stats.total_fgm': -(stats.fgm || 0),
+                'overall_stats.total_3pa': -(stats['3pa'] || 0),
+                'overall_stats.total_3pm': -(stats['3pm'] || 0),
+                'overall_stats.total_4pa': -(stats['4pa'] || 0),
+                'overall_stats.total_4pm': -(stats['4pm'] || 0),
+                'overall_stats.total_2pa': -((stats.fga || 0) - (stats['3pa'] || 0)  - (stats['4pa'] || 0)),
+                'overall_stats.total_2pm': -((stats.fgm || 0) - (stats['3pm'] || 0)  - (stats['4pm'] || 0)),
+                'overall_stats.total_fta': -(stats.fta || 0),
+                'overall_stats.total_ftm': -(stats.ftm || 0),
+                'overall_stats.total_rebounds': -(stats.reb || 0),
+                'overall_stats.total_oreb': -(stats.oreb || 0),
+                'overall_stats.total_dreb': -(stats.dreb || 0),
+                'overall_stats.total_assists': -(stats.ast || 0),
+                'overall_stats.total_turnovers': -(stats.tov || 0),
+                'overall_stats.total_steals': -(stats.stl || 0),
+                'overall_stats.total_blocks': -(stats.blk || 0),
+                'overall_stats.total_fouls': -(stats.pf || 0),
+                'overall_stats.total_double_doubles': -(stats.is_double_double ? 1 : 0),
+                'overall_stats.total_triple_doubles': -(stats.is_triple_double ? 1 : 0),
+            },
+            // Use $pull to remove any shots in the array that match this specific game_id
+            $pull: {
+                all_time_shot_data: { game_id: game._id }
+            }
+        };
+
+        playerUpdatePromises.push(
+            Player.findByIdAndUpdate(playerIdStr, updateData)
+        );
+    });
+
+    try {
+        await Promise.all(playerUpdatePromises);
+        console.log(`Successfully reverted overall stats for players in game ${game._id}`);
+    } catch (error) {
+        console.error(`Error reverting player stats for game ${game._id}:`, error);
     }
 };
 
@@ -483,6 +562,89 @@ const cancelGame = async (request, response) => {
     }
 };
 
+const removeGameEvent = async (request, response) => {
+    const { id: gameId, eventId } = request.params;
+
+    if (!mongoose.Types.ObjectId.isValid(gameId) || !mongoose.Types.ObjectId.isValid(eventId)) {
+        return response.status(400).json({ message: 'Invalid game or event ID format' });
+    }
+
+    try {
+        const game = await Game.findById(gameId);
+
+        if (!game) return response.status(404).json({ message: 'Game not found' });
+        
+        if (game.status !== 'in_progress') {
+            return response.status(400).json({ message: `Cannot remove events, game is already '${game.status}'` });
+        }
+
+        // Find the specific event
+        const eventIndex = game.events.findIndex(e => e._id && e._id.toString() === eventId);
+        
+        if (eventIndex === -1) {
+            return response.status(404).json({ message: 'Event not found in this game' });
+        }
+
+        const eventToRemove = game.events[eventIndex];
+
+        // If the event resulted in points, revert the score
+        if ((eventToRemove.type === 'shot' || eventToRemove.type === 'free_throw') && eventToRemove.made) {
+            const points = eventToRemove.points || (eventToRemove.type === 'free_throw' ? 1 : 0);
+            
+            if (eventToRemove.team === 'team_a') {
+                game.final_score.team_a = Math.max(0, game.final_score.team_a - points);
+            } else if (eventToRemove.team === 'team_b') {
+                game.final_score.team_b = Math.max(0, game.final_score.team_b - points);
+            }
+        }
+
+        // Remove the event from the array
+        game.events.splice(eventIndex, 1);
+        
+        await game.save();
+
+        return response.status(200).json({
+            message: 'Event removed and score updated successfully',
+            game: game
+        });
+
+    } catch (error) {
+        console.error("Remove Game Event Error:", error);
+        response.status(500).json({ message: 'Server error removing game event' });
+    }
+}
+
+const deleteGame = async (request, response) => {
+    const { id: gameId } = request.params;
+
+    if (!mongoose.Types.ObjectId.isValid(gameId)) {
+        return response.status(400).json({ message: 'Invalid game ID format' });
+    }
+
+    try {
+        const game = await Game.findById(gameId);
+
+        if (!game) {
+            return response.status(404).json({ message: 'Game not found' });
+        }
+
+        // If the game was finished or canceled, stats were already applied to the players.
+        // We must revert those stats before deleting the game record.
+        if (game.status === 'finished' || game.status === 'canceled') {
+            await _internalRevertPlayerStats(game);
+        }
+
+        // Now it is safe to delete the game entirely
+        await Game.findByIdAndDelete(gameId);
+
+        response.status(200).json({ message: 'Game deleted and stats reverted successfully' });
+
+    } catch (error) {
+        console.error("Game Deletion Error:", error);
+        response.status(500).json({ message: 'Server error during game deletion' });
+    }
+};
+
 module.exports = {
     createGame,
     updateGame,
@@ -490,5 +652,7 @@ module.exports = {
     listAllGames,
     getGameById,
     finalizeGame,
-    cancelGame
+    cancelGame,
+    deleteGame,
+    removeGameEvent
 };

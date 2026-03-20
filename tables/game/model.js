@@ -20,7 +20,7 @@ const eventSchema = new Schema({
     points: { type: Number, enum: [1, 2, 3, 4] }, // For shots and free throws
     rebound_type: { type: String, enum: ['offensive', 'defensive'] }, // For rebounds
     turnover_type: { type: String } // Could add specific turnover types later
-}, { _id: false, strict: false }); // Allow extra fields if needed later
+}, { strict: false }); // Allow extra fields if needed later
 
 // Sub-schema for the per-player summary within a game
 const playerGameStatsSchema = new Schema({
